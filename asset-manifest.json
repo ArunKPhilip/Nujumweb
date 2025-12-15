@@ -1,0 +1,15 @@
+{
+  "files": {
+    "main.css": "/Nujumweb/static/css/main.f855e6bc.css",
+    "main.js": "/Nujumweb/static/js/main.36fea141.js",
+    "static/js/453.a94b470a.chunk.js": "/Nujumweb/static/js/453.a94b470a.chunk.js",
+    "index.html": "/Nujumweb/index.html",
+    "main.f855e6bc.css.map": "/Nujumweb/static/css/main.f855e6bc.css.map",
+    "main.36fea141.js.map": "/Nujumweb/static/js/main.36fea141.js.map",
+    "453.a94b470a.chunk.js.map": "/Nujumweb/static/js/453.a94b470a.chunk.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.f855e6bc.css",
+    "static/js/main.36fea141.js"
+  ]
+}
