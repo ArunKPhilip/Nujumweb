@@ -1,15 +1,18 @@
 import React, { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { CssBaseline } from '@mui/material';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { AppThemeProvider } from './theme';
 import { Header, BottomNavigation, SOSButton } from './components/layout';
 import './App.css';
 
-// Placeholder components for main pages
+// Page components
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
+import DocumentVerificationPage from './pages/DocumentVerificationPage';
+import CreatePasswordPage from './pages/CreatePasswordPage';
+import ProfileCompletionPage from './pages/ProfileCompletionPage';
 import DashboardPage from './pages/DashboardPage';
 import CarePage from './pages/CarePage';
 import CommunityPage from './pages/CommunityPage';
@@ -23,6 +26,7 @@ import FindCarePage from './pages/FindCarePage';
 // Layout wrapper component
 const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { state } = useAuth();
+  const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
 
@@ -36,8 +40,14 @@ const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     // TODO: Implement search overlay
   };
 
-  // Check if current page is an authentication page (login/signup)
-  const isAuthPage = ['/login', '/signup'].includes(window.location.pathname);
+  // Check if current page is an authentication/signup page
+  const isAuthPage = [
+    '/login',
+    '/signup',
+    '/signup/documents',
+    '/signup/password',
+    '/profile/complete'
+  ].includes(location.pathname);
 
   return (
     <>
@@ -77,6 +87,9 @@ const AppContent: React.FC = () => {
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignupPage />} />
+      <Route path="/signup/documents" element={<DocumentVerificationPage />} />
+      <Route path="/signup/password" element={<CreatePasswordPage />} />
+      <Route path="/profile/complete" element={<ProfileCompletionPage />} />
 
       {/* Protected Routes */}
       <Route

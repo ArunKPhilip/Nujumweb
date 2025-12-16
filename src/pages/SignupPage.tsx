@@ -7,126 +7,119 @@ import {
   CardContent,
   TextField,
   Button,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
   Alert,
   Link,
-  IconButton,
   InputAdornment,
-  FormControlLabel,
-  Checkbox,
 } from '@mui/material';
 import {
-  Visibility,
-  VisibilityOff,
   Email as EmailIcon,
-  Lock as LockIcon,
   Person as PersonIcon,
   Phone as PhoneIcon,
+  Public as PublicIcon,
+  Accessibility as AccessibilityIcon,
 } from '@mui/icons-material';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const SignupPage: React.FC = () => {
   const navigate = useNavigate();
-  const { signup, state } = useAuth();
+  const { state } = useAuth();
 
-  const [formData, setFormData] = useState({
-    username: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
+  // Step 1: Basic Details (simplified)
+  const [basicData, setBasicData] = useState({
     fullName: '',
+    email: '',
     phone: '',
+    countryOfResidence: 'United Arab Emirates',
+    disabilityType: '',
   });
 
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [agreeToTerms, setAgreeToTerms] = useState(false);
 
   // Validation states
-  const [usernameError, setUsernameError] = useState('');
+  const [fullNameError, setFullNameError] = useState('');
   const [emailError, setEmailError] = useState('');
-  const [passwordError, setPasswordError] = useState('');
-  const [confirmPasswordError, setConfirmPasswordError] = useState('');
-  const [termsError, setTermsError] = useState('');
+  const [phoneError, setPhoneError] = useState('');
+  const [countryError, setCountryError] = useState('');
+  const [disabilityError, setDisabilityError] = useState('');
 
-  const validateUsername = (username: string) => {
-    if (!username.trim()) {
-      setUsernameError('Username is required');
+  // Disability types
+  const disabilityTypes = [
+    'Physical Disability',
+    'Visual Impairment',
+    'Hearing Impairment',
+    'Cognitive Disability',
+    'Communication Disability',
+    'Other',
+  ];
+
+  // Countries
+  const countries = [
+    'United Arab Emirates',
+    'Saudi Arabia',
+    'Qatar',
+    'Kuwait',
+    'Bahrain',
+    'Oman',
+    'Other',
+  ];
+
+  const validateFullName = (fullName: string) => {
+    if (!fullName.trim()) {
+      setFullNameError(state.language === 'en' ? 'Full name is required' : 'الاسم الكامل مطلوب');
       return false;
     }
-    if (username.length < 3) {
-      setUsernameError('Username must be at least 3 characters');
+    if (fullName.trim().length < 2) {
+      setFullNameError(state.language === 'en' ? 'Full name must be at least 2 characters' : 'الاسم الكامل يجب أن يكون حرفين على الأقل');
       return false;
     }
-    if (!/^[a-zA-Z0-9_]+$/.test(username)) {
-      setUsernameError('Username can only contain letters, numbers, and underscores');
-      return false;
-    }
-    setUsernameError('');
+    setFullNameError('');
     return true;
   };
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!email.trim()) {
-      setEmailError('Email is required');
+      setEmailError(state.language === 'en' ? 'Email is required' : 'البريد الإلكتروني مطلوب');
       return false;
     }
     if (!emailRegex.test(email)) {
-      setEmailError('Please enter a valid email address');
+      setEmailError(state.language === 'en' ? 'Please enter a valid email address' : 'يرجى إدخال عنوان بريد إلكتروني صحيح');
       return false;
     }
     setEmailError('');
     return true;
   };
 
-  const validatePassword = (password: string) => {
-    if (!password.trim()) {
-      setPasswordError('Password is required');
+  const validatePhone = (phone: string) => {
+    if (phone && !/^\+?[1-9]\d{1,14}$/.test(phone.replace(/\s+/g, ''))) {
+      setPhoneError(state.language === 'en' ? 'Please enter a valid phone number' : 'يرجى إدخال رقم هاتف صحيح');
       return false;
     }
-    if (password.length < 8) {
-      setPasswordError('Password must be at least 8 characters');
-      return false;
-    }
-    if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(password)) {
-      setPasswordError('Password must contain at least one uppercase letter, one lowercase letter, and one number');
-      return false;
-    }
-    setPasswordError('');
+    setPhoneError('');
     return true;
   };
 
-  const validateConfirmPassword = (confirmPassword: string, password: string) => {
-    if (!confirmPassword.trim()) {
-      setConfirmPasswordError('Please confirm your password');
+  const validateDisability = (disability: string) => {
+    if (!disability) {
+      setDisabilityError(state.language === 'en' ? 'Please select your disability type' : 'يرجى تحديد نوع الإعاقة');
       return false;
     }
-    if (confirmPassword !== password) {
-      setConfirmPasswordError('Passwords do not match');
-      return false;
-    }
-    setConfirmPasswordError('');
+    setDisabilityError('');
     return true;
   };
 
-  const validateTerms = (agreeToTerms: boolean) => {
-    if (!agreeToTerms) {
-      setTermsError('You must agree to the terms and conditions');
-      return false;
-    }
-    setTermsError('');
-    return true;
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData({
-      ...formData,
+    setBasicData(prev => ({
+      ...prev,
       [name]: value,
-    });
+    }));
 
     // Clear errors when user starts typing
     if (error) {
@@ -134,28 +127,38 @@ const SignupPage: React.FC = () => {
     }
 
     // Clear specific field errors when user types
-    if (name === 'username') setUsernameError('');
+    if (name === 'fullName') setFullNameError('');
     if (name === 'email') setEmailError('');
-    if (name === 'password') {
-      setPasswordError('');
-      if (formData.confirmPassword) {
-        validateConfirmPassword(formData.confirmPassword, value);
-      }
+    if (name === 'phone') setPhoneError('');
+  };
+
+  const handleSelectChange = (fieldName: string) => (event: any) => {
+    const value = event.target.value;
+    setBasicData(prev => ({
+      ...prev,
+      [fieldName]: value,
+    }));
+
+    // Clear errors when user starts typing
+    if (error) {
+      setError('');
     }
-    if (name === 'confirmPassword') validateConfirmPassword(value, formData.password);
+
+    // Clear specific field errors when user selects
+    if (fieldName === 'disabilityType') setDisabilityError('');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validate all fields
-    const isUsernameValid = validateUsername(formData.username);
-    const isEmailValid = validateEmail(formData.email);
-    const isPasswordValid = validatePassword(formData.password);
-    const isConfirmPasswordValid = validateConfirmPassword(formData.confirmPassword, formData.password);
-    const isTermsValid = validateTerms(agreeToTerms);
+    // Validate all required fields
+    const isFullNameValid = validateFullName(basicData.fullName);
+    const isEmailValid = validateEmail(basicData.email);
+    const isPhoneValid = validatePhone(basicData.phone);
+    const isDisabilityValid = validateDisability(basicData.disabilityType);
 
-    if (!isUsernameValid || !isEmailValid || !isPasswordValid || !isConfirmPasswordValid || !isTermsValid) {
+    if (!isFullNameValid || !isEmailValid || !isPhoneValid || !isDisabilityValid) {
+      console.log('Validation failed:', { isFullNameValid, isEmailValid, isPhoneValid, isDisabilityValid });
       return;
     }
 
@@ -163,44 +166,26 @@ const SignupPage: React.FC = () => {
     setError('');
 
     try {
-      // Prepare user data for signup
-      const userData: any = {
-        username: formData.username.trim(),
-        email: formData.email.trim().toLowerCase(),
-        password: formData.password,
-        fullName: formData.fullName.trim(),
-        phone: formData.phone.trim(),
-        disabilityType: '', // Will be filled later in profile setup
-        countryOfResidence: 'United Arab Emirates',
-        nationality: '',
-        gender: '',
-        dateOfBirth: '',
-      };
+      // Store basic data in session storage for next steps
+      const signupData = JSON.stringify(basicData);
+      sessionStorage.setItem('signup_basic_data', signupData);
+      console.log('Stored signup data:', signupData);
 
-      await signup(userData);
-
-      // Success - navigate to dashboard
-      navigate('/dashboard', { replace: true });
+      console.log('Navigating to document verification...');
+      // Navigate to document verification step
+      navigate('/signup/documents', { replace: true });
 
     } catch (err: any) {
-      const errorMessage = err.message || 'Signup failed. Please try again.';
+      console.error('Signup submission error:', err);
+      const errorMessage = err.message || (state.language === 'en' ? 'Failed to process your information' : 'فشل في معالجة معلوماتك');
       setError(errorMessage);
-
-      // Clear passwords on error
-      if (errorMessage.includes('already exists') || errorMessage.includes('Invalid')) {
-        setFormData(prev => ({
-          ...prev,
-          password: '',
-          confirmPassword: ''
-        }));
-      }
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Container component="main" maxWidth="sm">
+    <Container component="main" maxWidth="md">
       <Box
         sx={{
           marginTop: 4,
@@ -220,8 +205,15 @@ const SignupPage: React.FC = () => {
           }
         </Typography>
 
-        <Card sx={{ width: '100%', boxShadow: 3 }}>
+        <Card sx={{ width: '100%', maxWidth: 600, boxShadow: 3 }}>
           <CardContent sx={{ p: 4 }}>
+            {/* Step Indicator */}
+            <Box sx={{ mb: 3, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+              <Typography variant="h6" fontWeight={500}>
+                {state.language === 'en' ? 'Step 1: Basic Information' : 'الخطوة 1: المعلومات الأساسية'}
+              </Typography>
+            </Box>
+
             {error && (
               <Alert severity="error" sx={{ mb: 3 }}>
                 {error}
@@ -229,19 +221,19 @@ const SignupPage: React.FC = () => {
             )}
 
             <Box component="form" onSubmit={handleSubmit} sx={{ width: '100%' }}>
-              {/* Username */}
+              {/* Full Name */}
               <TextField
                 margin="normal"
                 required
                 fullWidth
-                id="username"
-                label={state.language === 'en' ? 'Username' : 'اسم المستخدم'}
-                name="username"
-                autoComplete="username"
-                value={formData.username}
-                onChange={handleChange}
-                error={!!usernameError}
-                helperText={usernameError}
+                id="fullName"
+                label={state.language === 'en' ? 'Full Name' : 'الاسم الكامل'}
+                name="fullName"
+                autoComplete="name"
+                value={basicData.fullName}
+                onChange={handleTextChange}
+                error={!!fullNameError}
+                helperText={fullNameError}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
@@ -261,8 +253,8 @@ const SignupPage: React.FC = () => {
                 name="email"
                 autoComplete="email"
                 type="email"
-                value={formData.email}
-                onChange={handleChange}
+                value={basicData.email}
+                onChange={handleTextChange}
                 error={!!emailError}
                 helperText={emailError}
                 InputProps={{
@@ -274,36 +266,19 @@ const SignupPage: React.FC = () => {
                 }}
               />
 
-              {/* Full Name */}
-              <TextField
-                margin="normal"
-                fullWidth
-                id="fullName"
-                label={state.language === 'en' ? 'Full Name (Optional)' : 'الاسم الكامل (اختياري)'}
-                name="fullName"
-                autoComplete="name"
-                value={formData.fullName}
-                onChange={handleChange}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <PersonIcon />
-                    </InputAdornment>
-                  ),
-                }}
-              />
-
               {/* Phone */}
               <TextField
                 margin="normal"
                 fullWidth
                 id="phone"
-                label={state.language === 'en' ? 'Phone Number (Optional)' : 'رقم الهاتف (اختياري)'}
+                label={state.language === 'en' ? 'Phone Number' : 'رقم الهاتف'}
                 name="phone"
                 autoComplete="tel"
                 type="tel"
-                value={formData.phone}
-                onChange={handleChange}
+                value={basicData.phone}
+                onChange={handleTextChange}
+                error={!!phoneError}
+                helperText={phoneError}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
@@ -313,114 +288,69 @@ const SignupPage: React.FC = () => {
                 }}
               />
 
-              {/* Password */}
-              <TextField
-                margin="normal"
-                required
-                fullWidth
-                name="password"
-                label={state.language === 'en' ? 'Password' : 'كلمة المرور'}
-                type={showPassword ? 'text' : 'password'}
-                id="password"
-                autoComplete="new-password"
-                value={formData.password}
-                onChange={handleChange}
-                error={!!passwordError}
-                helperText={passwordError}
-                InputProps={{
-                  startAdornment: (
+              {/* Country of Residence */}
+              <FormControl fullWidth margin="normal">
+                <InputLabel id="country-label">
+                  {state.language === 'en' ? 'Country of Residence' : 'بلد الإقامة'}
+                </InputLabel>
+                <Select
+                  labelId="country-label"
+                  id="countryOfResidence"
+                  name="countryOfResidence"
+                  value={basicData.countryOfResidence}
+                  onChange={handleSelectChange('countryOfResidence')}
+                  label={state.language === 'en' ? 'Country of Residence' : 'بلد الإقامة'}
+                  startAdornment={
                     <InputAdornment position="start">
-                      <LockIcon />
+                      <PublicIcon />
                     </InputAdornment>
-                  ),
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <IconButton
-                        aria-label={state.language === 'en' ? 'toggle password visibility' : 'إظهار/إخفاء كلمة المرور'}
-                        onClick={() => setShowPassword(!showPassword)}
-                        edge="end"
-                      >
-                        {showPassword ? <VisibilityOff /> : <Visibility />}
-                      </IconButton>
-                    </InputAdornment>
-                  ),
-                }}
-              />
+                  }
+                >
+                  {countries.map(country => (
+                    <MenuItem key={country} value={country}>
+                      {country}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
 
-              {/* Confirm Password */}
-              <TextField
-                margin="normal"
-                required
-                fullWidth
-                name="confirmPassword"
-                label={state.language === 'en' ? 'Confirm Password' : 'تأكيد كلمة المرور'}
-                type={showConfirmPassword ? 'text' : 'password'}
-                id="confirmPassword"
-                autoComplete="new-password"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                error={!!confirmPasswordError}
-                helperText={confirmPasswordError}
-                InputProps={{
-                  startAdornment: (
+              {/* Disability Type */}
+              <FormControl fullWidth margin="normal" required error={!!disabilityError}>
+                <InputLabel id="disability-label">
+                  {state.language === 'en' ? 'Disability Type' : 'نوع الإعاقة'}
+                </InputLabel>
+                <Select
+                  labelId="disability-label"
+                  id="disabilityType"
+                  name="disabilityType"
+                  value={basicData.disabilityType}
+                  onChange={handleSelectChange('disabilityType')}
+                  label={state.language === 'en' ? 'Disability Type' : 'نوع الإعاقة'}
+                  startAdornment={
                     <InputAdornment position="start">
-                      <LockIcon />
+                      <AccessibilityIcon />
                     </InputAdornment>
-                  ),
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <IconButton
-                        aria-label={state.language === 'en' ? 'toggle confirm password visibility' : 'إظهار/إخفاء تأكيد كلمة المرور'}
-                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                        edge="end"
-                      >
-                        {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
-                      </IconButton>
-                    </InputAdornment>
-                  ),
-                }}
-              />
-
-              {/* Terms and Conditions */}
-              <Box sx={{ mt: 2, mb: 1 }}>
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={agreeToTerms}
-                      onChange={(e) => {
-                        setAgreeToTerms(e.target.checked);
-                        setTermsError('');
-                      }}
-                      color="primary"
-                    />
                   }
-                  label={
-                    <Typography variant="body2">
-                      {state.language === 'en' ? 'I agree to the ' : 'أوافق على '}
-                      <Link
-                        href="#"
-                        sx={{ textDecoration: 'underline' }}
-                        onClick={(e) => e.preventDefault()}
-                      >
-                        {state.language === 'en' ? 'Terms of Service' : 'شروط الخدمة'}
-                      </Link>
-                      {state.language === 'en' ? ' and ' : ' و'}
-                      <Link
-                        href="#"
-                        sx={{ textDecoration: 'underline' }}
-                        onClick={(e) => e.preventDefault()}
-                      >
-                        {state.language === 'en' ? 'Privacy Policy' : 'سياسة الخصوصية'}
-                      </Link>
-                    </Typography>
-                  }
-                />
-                {termsError && (
-                  <Typography variant="caption" color="error" sx={{ ml: 4 }}>
-                    {termsError}
+                >
+                  {disabilityTypes.map(type => (
+                    <MenuItem key={type} value={type}>
+                      {state.language === 'en' ? type : (
+                        type === 'Physical Disability' ? 'إعاقة جسدية' :
+                        type === 'Visual Impairment' ? 'إعاقة بصرية' :
+                        type === 'Hearing Impairment' ? 'إعاقة سمعية' :
+                        type === 'Cognitive Disability' ? 'إعاقة إدراكية' :
+                        type === 'Communication Disability' ? 'إعاقة تواصل' :
+                        'أخرى'
+                      )}
+                    </MenuItem>
+                  ))}
+                </Select>
+                {disabilityError && (
+                  <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 1.5 }}>
+                    {disabilityError}
                   </Typography>
                 )}
-              </Box>
+              </FormControl>
 
               <Button
                 type="submit"
@@ -430,8 +360,8 @@ const SignupPage: React.FC = () => {
                 disabled={loading}
               >
                 {loading
-                  ? (state.language === 'en' ? 'Creating Account...' : 'جارٍ إنشاء الحساب...')
-                  : (state.language === 'en' ? 'Create Account' : 'إنشاء الحساب')
+                  ? (state.language === 'en' ? 'Processing...' : 'معالجة...')
+                  : (state.language === 'en' ? 'Continue to Next Step' : 'المتابعة للخطوة التالية')
                 }
               </Button>
             </Box>

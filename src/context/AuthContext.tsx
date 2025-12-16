@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
 import { User, AuthState, AccessibilityMode, ThemeMode } from '../types';
+import { supabase } from '../lib/supabase';
 
 // Auth Action Types
 type AuthAction =
@@ -15,11 +16,11 @@ interface AuthContextType {
   state: AuthState;
   login: (email: string, password: string) => Promise<void>;
   signup: (userData: Omit<User, 'id' | 'isVerified' | 'verificationStatus' | 'createdAt' | 'updatedAt'>) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   setLanguage: (language: 'en' | 'ar') => void;
   setAccessibilityMode: (mode: AccessibilityMode) => void;
   setThemeMode: (theme: ThemeMode) => void;
-  updateUser: (userData: Partial<User>) => void;
+  updateUser: (userData: Partial<User>) => Promise<void>;
 }
 
 // Initial State
@@ -82,22 +83,53 @@ interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [state, dispatch] = useReducer(authReducer, initialState);
 
-  // Load user data from localStorage on mount
+  // Helper function to load user profile from database
+  const loadUserProfile = async (userId: string) => {
+    try {
+      const { data: profile, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (error) {
+        console.error('Error loading user profile:', error);
+        return;
+      }
+
+      if (profile) {
+        const user: User = {
+          id: profile.id,
+          username: profile.username,
+          fullName: profile.full_name,
+          email: profile.email,
+          phone: profile.phone || '',
+          profilePicture: profile.profile_picture || '',
+          disabilityType: profile.disability_type as any,
+          countryOfResidence: profile.country_of_residence,
+          nationality: profile.nationality || '',
+          gender: profile.gender || '',
+          dateOfBirth: profile.date_of_birth || '',
+          isVerified: profile.is_verified,
+          verificationStatus: profile.verification_status as any,
+          createdAt: profile.created_at,
+          updatedAt: profile.updated_at,
+          bio: profile.bio || '',
+          bloodGroup: profile.blood_group || '',
+          emergencyContact: profile.emergency_contact || '',
+        };
+        dispatch({ type: 'LOGIN_SUCCESS', payload: user });
+      }
+    } catch (error) {
+      console.error('Failed to load user profile:', error);
+    }
+  };
+
+  // Load user preferences from localStorage
   useEffect(() => {
-    const storedUser = localStorage.getItem('nujjum_user');
     const storedLanguage = localStorage.getItem('nujjum_language') as 'en' | 'ar';
     const storedAccessibilityMode = localStorage.getItem('nujjum_accessibility_mode') as AccessibilityMode;
     const storedThemeMode = localStorage.getItem('nujjum_theme_mode') as ThemeMode;
-
-    if (storedUser) {
-      try {
-        const user = JSON.parse(storedUser);
-        dispatch({ type: 'LOGIN_SUCCESS', payload: user });
-      } catch (error) {
-        console.error('Failed to parse stored user data:', error);
-        localStorage.removeItem('nujjum_user');
-      }
-    }
 
     if (storedLanguage) {
       dispatch({ type: 'SET_LANGUAGE', payload: storedLanguage });
@@ -110,6 +142,35 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     if (storedThemeMode === 'light' || storedThemeMode === 'dark') {
       dispatch({ type: 'SET_THEME_MODE', payload: storedThemeMode });
     }
+  }, []);
+
+  // Handle Supabase auth state changes
+  useEffect(() => {
+    // Get initial user
+    const initializeAuth = async () => {
+      // @ts-ignore
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (user && !error) {
+        loadUserProfile(user.id);
+      }
+    };
+    initializeAuth();
+
+    // Listen for auth changes
+    // @ts-ignore
+    const {
+      // @ts-ignore
+      data: { subscription },
+      // @ts-ignore
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session?.user) {
+        await loadUserProfile(session.user.id);
+      } else if (event === 'SIGNED_OUT') {
+        dispatch({ type: 'LOG_OUT' });
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   // Save state changes to localStorage
@@ -133,109 +194,132 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     localStorage.setItem('nujjum_theme_mode', state.themeMode);
   }, [state.themeMode]);
 
-  // Auth functions with proper validation and storage
+  // Auth functions with Supabase integration
   const login = async (email: string, password: string): Promise<void> => {
-    return new Promise((resolve, reject) => {
-      // Simulate network delay
-      setTimeout(() => {
-        try {
-          // Get stored users from localStorage
-          const storedUsers = JSON.parse(localStorage.getItem('nujjum_users') || '[]');
+    try {
+      // @ts-ignore
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-          // Find user by email and password
-          const user = storedUsers.find((u: any) => u.email === email && u.password === password);
+      if (error) {
+        throw error;
+      }
 
-          if (!user) {
-            reject(new Error('Invalid email or password'));
-            return;
-          }
+      // Auth state change will handle loading user profile
+      // No need to manually call loadUserProfile here
+    } catch (error: any) {
+      throw new Error(error.message || 'Login failed. Please try again.');
+    }
+  };
 
-          // Remove password from user object before storing in state
-          const { password: _, ...userWithoutPassword } = user;
-          dispatch({ type: 'LOGIN_SUCCESS', payload: userWithoutPassword });
-          resolve();
-        } catch (error) {
-          reject(new Error('Login failed. Please try again.'));
-        }
-      }, 1000); // Simulate network delay
-    });
+  // Helper function to map disability display names to database enum values
+  const mapDisabilityType = (displayType: string): string => {
+    const mapping: Record<string, string> = {
+      'Physical Disability': 'physical',
+      'Visual Impairment': 'visual',
+      'Hearing Impairment': 'hearing',
+      'Cognitive Disability': 'cognitive',
+      'Communication Disability': 'speech',
+      'Autism Spectrum Disorder': 'multiple',
+      'Mental Health Conditions': 'cognitive',
+      'Chronic Illness': 'other',
+      'Mobility Impairment': 'physical',
+      'Other': 'other',
+    };
+    return mapping[displayType] || 'other';
   };
 
   const signup = async (userData: any): Promise<void> => {
-    return new Promise((resolve, reject) => {
-      // Simulate network delay
-      setTimeout(() => {
-        try {
-          // Validate required fields
-          if (!userData.email || !userData.password || !userData.username) {
-            reject(new Error('Email, password, and username are required'));
-            return;
-          }
+    try {
+      // Validate required fields
+      if (!userData.email || !userData.password || !userData.username) {
+        throw new Error('Email, password, and username are required');
+      }
 
-          // Validate email format
-          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-          if (!emailRegex.test(userData.email)) {
-            reject(new Error('Please enter a valid email address'));
-            return;
-          }
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(userData.email)) {
+        throw new Error('Please enter a valid email address');
+      }
 
-          // Validate password strength
-          if (userData.password.length < 8) {
-            reject(new Error('Password must be at least 8 characters long'));
-            return;
-          }
+      // Validate password strength
+      if (userData.password.length < 8) {
+        throw new Error('Password must be at least 8 characters long');
+      }
 
-          // Get existing users
-          const storedUsers = JSON.parse(localStorage.getItem('nujjum_users') || '[]');
+      // Validate username format
+      if (!/^[a-zA-Z0-9_-]+$/.test(userData.username)) {
+        throw new Error('Username can only contain letters, numbers, underscores, and hyphens');
+      }
 
-          // Check if user already exists
-          const existingUser = storedUsers.find((u: any) => u.email === userData.email || u.username === userData.username);
-          if (existingUser) {
-            reject(new Error('User with this email or username already exists'));
-            return;
-          }
+      console.log('Signing up with data:', userData);
 
-          // Create new user
-          const newUser: User = {
-            id: Date.now().toString(),
-            username: userData.username,
-            fullName: userData.fullName || '',
-            email: userData.email,
-            phone: userData.phone || '',
-            profilePicture: userData.profilePicture || '',
-            disabilityType: userData.disabilityType || '',
-            countryOfResidence: 'United Arab Emirates', // Default for NUJJUM
-            nationality: userData.nationality || '',
-            gender: userData.gender || '',
-            dateOfBirth: userData.dateOfBirth || '',
-            isVerified: false,
-            verificationStatus: 'pending',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          };
+      // Sign up with Supabase Auth
+      // @ts-ignore
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: userData.email,
+        password: userData.password,
+      });
 
-          // Create stored user with password
-          const storedUser = {
-            ...newUser,
-            password: userData.password
-          };
+      if (authError) {
+        throw authError;
+      }
 
-          // Add to stored users
-          storedUsers.push(storedUser);
-          localStorage.setItem('nujjum_users', JSON.stringify(storedUsers));
+      if (!authData.user) {
+        throw new Error('Signup failed. Please try again.');
+      }
 
-          // Log user in (remove password from state)
-          dispatch({ type: 'LOGIN_SUCCESS', payload: newUser });
-          resolve();
-        } catch (error) {
-          reject(new Error('Signup failed. Please try again.'));
-        }
-      }, 1500); // Simulate network delay
-    });
+      // Map disability type to database enum value
+      const disabilityTypeMapped = mapDisabilityType(userData.disabilityType || 'Other');
+
+      // Update the user profile in the users table (created by trigger)
+      const { error: profileError } = await supabase
+        .from('users')
+        .update({
+          username: userData.username,
+          full_name: userData.fullName || '',
+          phone: userData.phone || null,
+          profile_picture: userData.profilePicture || null,
+          disability_type: disabilityTypeMapped,
+          country_of_residence: userData.countryOfResidence || 'United Arab Emirates',
+          nationality: userData.nationality || null,
+          gender: userData.gender || null,
+          date_of_birth: userData.dateOfBirth || null,
+          is_verified: false,
+          verification_status: 'pending',
+          bio: userData.bio || null,
+          blood_group: userData.bloodGroup || null,
+          emergency_contact: userData.emergencyContact || null,
+        })
+        .eq('id', authData.user.id);
+
+      if (profileError) {
+        console.error('Profile update error:', profileError);
+        throw new Error('Failed to create user profile. Please try again.');
+      }
+
+      // Note: User will be automatically logged in via auth state change
+
+    } catch (error: any) {
+      console.error('Signup error:', error);
+      throw new Error(error.message || 'Account creation failed. Please try again.');
+    }
   };
 
-  const logout = (): void => {
-    dispatch({ type: 'LOG_OUT' });
+  const logout = async (): Promise<void> => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('Error signing out:', error);
+      }
+      // Auth state change will handle the logout dispatch
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Force logout even if Supabase logout fails
+      dispatch({ type: 'LOG_OUT' });
+    }
   };
 
   const setLanguage = (language: 'en' | 'ar'): void => {
@@ -250,8 +334,42 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     dispatch({ type: 'SET_THEME_MODE', payload: theme });
   };
 
-  const updateUser = (userData: Partial<User>): void => {
-    dispatch({ type: 'UPDATE_USER', payload: userData });
+  const updateUser = async (userData: Partial<User>): Promise<void> => {
+    try {
+      if (!state.user) {
+        throw new Error('No user logged in');
+      }
+
+      // Update database first
+      const updateData: any = {};
+      if (userData.fullName !== undefined) updateData.full_name = userData.fullName;
+      if (userData.phone !== undefined) updateData.phone = userData.phone;
+      if (userData.profilePicture !== undefined) updateData.profile_picture = userData.profilePicture;
+      if (userData.disabilityType !== undefined) updateData.disability_type = userData.disabilityType;
+      if (userData.nationality !== undefined) updateData.nationality = userData.nationality;
+      if (userData.gender !== undefined) updateData.gender = userData.gender;
+      if (userData.dateOfBirth !== undefined) updateData.date_of_birth = userData.dateOfBirth;
+      if (userData.bio !== undefined) updateData.bio = userData.bio;
+      if (userData.bloodGroup !== undefined) updateData.blood_group = userData.bloodGroup;
+      if (userData.emergencyContact !== undefined) updateData.emergency_contact = userData.emergencyContact;
+
+      updateData.updated_at = new Date().toISOString();
+
+      const { error } = await supabase
+        .from('users')
+        .update(updateData)
+        .eq('id', state.user.id);
+
+      if (error) {
+        throw error;
+      }
+
+      // Update local state
+      dispatch({ type: 'UPDATE_USER', payload: userData });
+    } catch (error: any) {
+      console.error('Error updating user profile:', error);
+      throw new Error('Failed to update profile');
+    }
   };
 
   const value: AuthContextType = {
