@@ -1,17 +1,17 @@
 {
   "files": {
     "main.css": "/Nujumweb/static/css/main.f855e6bc.css",
-    "main.js": "/Nujumweb/static/js/main.113429e4.js",
+    "main.js": "/Nujumweb/static/js/main.d2a8f04c.js",
     "static/js/38.6596a5b6.chunk.js": "/Nujumweb/static/js/38.6596a5b6.chunk.js",
     "static/js/453.a94b470a.chunk.js": "/Nujumweb/static/js/453.a94b470a.chunk.js",
     "index.html": "/Nujumweb/index.html",
     "main.f855e6bc.css.map": "/Nujumweb/static/css/main.f855e6bc.css.map",
-    "main.113429e4.js.map": "/Nujumweb/static/js/main.113429e4.js.map",
+    "main.d2a8f04c.js.map": "/Nujumweb/static/js/main.d2a8f04c.js.map",
     "38.6596a5b6.chunk.js.map": "/Nujumweb/static/js/38.6596a5b6.chunk.js.map",
     "453.a94b470a.chunk.js.map": "/Nujumweb/static/js/453.a94b470a.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.f855e6bc.css",
-    "static/js/main.113429e4.js"
+    "static/js/main.d2a8f04c.js"
   ]
 }
